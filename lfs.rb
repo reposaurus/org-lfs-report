@@ -24,9 +24,14 @@ end
 
 def git_lfs_size(*args)
   lfs_list, status = git_lfs(*args)
-  lfs_list.sum do |line|
-    line.match(/([0-9]+\.[0-9]+ [A-Z]+)/).split(" ")[0].to_f
-  end
+
+  lfs_lines = lfs_list.split("\n")
+  sum = lfs_lines.map do |line|
+    matched = line.match(/(\([0-9]+\.*[0-9]* [A-Z]+\)$)/)[0].gsub(/[()]/, "").split(" ")[0].to_f
+    matched.nil? ? 0 : matched
+  end.sum
+
+  sum
 end
 
 tmp_dir = File.expand_path "./tmp", File.dirname(__FILE__)
@@ -61,12 +66,12 @@ File.open(FILEPATH, "w") do |f|
         clone_url = repo.clone_url
         clone_url = clone_url.sub "//", "//#{ENV["GITHUB_TOKEN"]}:x-oauth-basic@" if ENV["GITHUB_TOKEN"]
         output, status = Open3.capture2e "git", "clone", "--depth", "1", "--quiet", clone_url, destination
-        puts status.class
+
         next unless status.exitstatus == 0
 
         output = git_lfs_size destination
 
-        puts "LFS files found with a total size of #{output}"
+        puts "LFS files found with a total size of #{output} MB"
 
         if output == 0
           puts "No LFS files found in #{repo.name}"
@@ -79,7 +84,7 @@ File.open(FILEPATH, "w") do |f|
       end
   end
 end
-puts "Done. Summing..."
+puts "Done!"
 
 puts
 puts "------------------------------------------"
